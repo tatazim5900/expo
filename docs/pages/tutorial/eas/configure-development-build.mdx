@@ -1,205 +1,130 @@
----
-title: Configure a development build in cloud
-sidebar_title: Configure development build
-description: Learn how to configure a development build for a project using EAS Build.
----
+// Relax VPN - Basic Android VPN App Template using OpenVPN SDK with Servers
 
-import { Collapsible } from '~/ui/components/Collapsible';
-import { ContentSpotlight } from '~/ui/components/ContentSpotlight';
-import { ProgressTracker } from '~/ui/components/ProgressTracker';
-import { Terminal } from '~/ui/components/Snippet';
-import { Step } from '~/ui/components/Step';
-import { CODE } from '~/ui/components/Text';
-import { VideoBoxLink } from '~/ui/components/VideoBoxLink';
+// Step 1: build.gradle (App level) // Add required dependencies
 
-In this chapter, we'll set up and configure a development build with EAS for our example app.
+/* dependencies { implementation 'net.openvpn:openvpn:0.7.21' implementation 'com.google.android.gms:play-services-ads:22.0.0' // For AdMob } */
 
-<VideoBoxLink videoId="uQCE9zl3dXU" title="Watch: How to configure a development build" />
+// Step 2: AndroidManifest.xml // Permissions and services
 
----
+/* <uses-permission android:name="android.permission.INTERNET" /> <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
-## Understanding development builds
+<application>
+    <service android:name="de.blinkt.openvpn.core.OpenVPNService" android:permission="android.permission.BIND_VPN_SERVICE">
+        <intent-filter>
+            <action android:name="android.net.VpnService" />
+        </intent-filter>
+    </service><meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
+           android:value="ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy"/>
 
-Let's start by learning about what are development builds and why we need them.
+</application>
+*/// Step 3: MainActivity.java
 
-A [development build](/develop/development-builds/introduction/) is a debug version of our project. It is optimized for quick iterations when creating an app. It contains the [`expo-dev-client`](/versions/latest/sdk/dev-client/) library, which offers a robust and complete development environment. This setup allows us to integrate any native library or change code inside the [native directories](/workflow/overview/#android-and-ios-native-projects) as required.
+/* public class MainActivity extends AppCompatActivity {
 
-### Key highlights
+private Button connectBtn;
+private Spinner serverSpinner;
+private AdView adView;
+private String selectedServerConfig;
 
-> **Note:** If you are familiar with [Expo Go](/get-started/expo-go/), think of a development build as a customizable version of Expo Go that is unique to the requirements of a project.
+private final Map<String, String> serverConfigs = new HashMap<String, String>() {{
+    put("USA", "usa.ovpn");
+    put("Singapore", "singapore.ovpn");
+    put("India", "india.ovpn");
+}};
 
-| Feature                           | Development Builds                                                                                                                             | Expo Go                                                                                              |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Development phase**             | Offers web-like iteration speed for mobile app development.                                                                                    | Allows for quick iteration and testing of Expo SDK projects using the client app.                    |
-| **Collaboration**                 | Facilitates team testing with shared native runtime.                                                                                           | Easy project sharing via QR codes on a device.                                                       |
-| **Third-party libraries support** | Full support for any [third-party library](/workflow/using-libraries/#third-party-libraries), including those that require custom native code. | Limited to libraries within the Expo SDK, not suitable for custom native dependencies.               |
-| **Customization**                 | Extensive customization with [config plugins](/config-plugins/introduction/) and direct access to native code.                                 | Limited customization with a focus on Expo SDK capabilities without direct native code modification. |
-| **Intended use**                  | Ideal for full-fledged app development aimed at store deployment, offering a complete development environment and tools.                       | Ideal for learning, prototyping, and experimenting. Not recommended for production apps.             |
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
 
-<Step label="1">
+    connectBtn = findViewById(R.id.connectButton);
+    serverSpinner = findViewById(R.id.serverSpinner);
+    adView = findViewById(R.id.adView);
 
-## Install expo-dev-client library
+    MobileAds.initialize(this, initializationStatus -> {});
+    adView.loadAd(new AdRequest.Builder().build());
 
-To initialize our project for a development build, let's [`cd`](https://developer.mozilla.org/en-US/docs/Learn/Tools_and_testing/Understanding_client-side_tools/Command_line#basic_built-in_terminal_commands) inside our project directory and run the following command to install the library:
+    ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, new ArrayList<>(serverConfigs.keySet()));
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+    serverSpinner.setAdapter(adapter);
 
-<Terminal cmd={['$ npx expo install expo-dev-client']} />
-
-### Start the development server
-
-Run the `npx expo start` to start the [development server](/get-started/start-developing/#start-a-development-server):
-
-<Terminal cmd={['$ npx expo start']} />
-
-This command starts the metro bundler. In the terminal window, we see the QR code followed by the `Metro waiting on...` and a manifest URL:
-
-<ContentSpotlight
-  alt="Running development server"
-  src="/static/images/tutorial/eas/development-server.png"
-  className="max-w-[600px]"
-/>
-
-Let's notice the changes installing the `expo-dev-client` library:
-
-- The manifest URL contains `expo-development-client` along with the app scheme
-- The development server now operates for a development build (instead of Expo Go).
-
-Since we do not have a development build installed on one of our devices or an emulator/simulator, we can't run our project yet.
-
-</Step>
-
-<Step label="2">
-
-## Initialize a development build
-
-### Install EAS CLI
-
-We need to install the EAS Command Line Interface (CLI) tool as a global dependency on our local machine. Run the following command:
-
-<Terminal cmd={['$ npm install -g eas-cli']} />
-
-### Log in or sign up for an Expo account
-
-> If you have an Expo account and are signed in using Expo CLI, skip this step. If you don't have an Expo account, [sign up here](https://expo.dev/signup) and proceed with the login command described below.
-
-To log in, run the following command:
-
-<Terminal cmd={['$ eas login']} />
-
-This command asks for our Expo account email or username and password to complete the login.
-
-### Initialize and link the project to EAS
-
-For any new project, the first step is to initialize and link it to the EAS servers. Run the following command:
-
-<Terminal cmd={['$ eas init']} />
-
-On running, this command:
-
-- Requests verification of the account owner by entering our Expo account credentials and asks if we want to create a new EAS project:
-
-<Terminal
-  cmd={[
-    '# Output after running eas init',
-    '✔ Which account should own this project? > your-username',
-    '✔ Would you like to create a project for @your-username/sticker-smash? … yes',
-    '✔ Created @your-username/sticker-smash',
-    '✔ Project successfully linked (ID: XXXX-XX-XX-XXXX) (modified app.json)',
-  ]}
-/>
-
-- Creates EAS project and provides a link to that project which we can open in the Expo dashboard:
-
-<ContentSpotlight
-  alt="New project in Expo dashboard"
-  src="/static/images/tutorial/eas/new-project.png"
-/>
-
-- Generates a unique `projectId` and links this EAS project to the example app on our development machine.
-- Modifies **app.json** to include [`extra.eas.projectId`](/versions/latest/sdk/constants/#easconfig) and updates its value with the unique ID created.
-
-<Collapsible summary={<>What is <CODE>projectId</CODE> in app.json?</>}>
-
-When `eas init` runs, it associates a unique identifier for our project in **app.json** under `extra.eas.projectId`. The value of this property is used to identify our project on EAS servers.
-
-```json
-{
-  "extra": {
-    "eas": {
-      "projectId": "0cd3da2d-xxx-xxx-xxx-xxxxxxxxxx"
-    }
-  }
+    connectBtn.setOnClickListener(v -> {
+        String selected = serverSpinner.getSelectedItem().toString();
+        selectedServerConfig = serverConfigs.get(selected);
+        showAdAndConnect();
+    });
 }
-```
 
-</Collapsible>
+private void showAdAndConnect() {
+    InterstitialAd.load(this, "ca-app-pub-xxxxxxxxxxxxxxxx/zzzzzzzzzz",
+        new AdRequest.Builder().build(), new InterstitialAdLoadCallback() {
 
-</Step>
+            @Override
+            public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
+                interstitialAd.show(MainActivity.this);
+                interstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        startVPN();
+                    }
+                });
+            }
 
-<Step label="3">
-
-## Configure project for EAS Build
-
-To set up our project for EAS Build, run the following command:
-
-<Terminal cmd={['$ eas build:configure']} />
-
-On running, this command:
-
-- Prompts to select a platform: **Android**, **iOS**, or **All**. Since we are creating Android and iOS apps, let's select **All**.
-- Creates **eas.json** in the root of our project's directory with the following configuration:
-
-```json eas.json
-{
-  "cli": {
-    "version": ">= 14.2.0",
-    "appVersionSource": "remote"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal"
-    },
-    "production": {
-      "autoIncrement": true
-    }
-  },
-  "submit": {
-    "production": {}
-  }
+            @Override
+            public void onAdFailedToLoad(@NonNull LoadAdError adError) {
+                startVPN();
+            }
+        });
 }
-```
 
-This is the default configuration for **eas.json** in a new project. It does two things:
+private void startVPN() {
+    // Load .ovpn config and start VPN using OpenVPN API
+    try {
+        InputStream is = getAssets().open(selectedServerConfig);
+        byte[] buffer = new byte[is.available()];
+        is.read(buffer);
+        is.close();
+        String config = new String(buffer);
 
-- Defines the current EAS CLI version.
-- Adds three [build profiles](/build/eas-json/#build-profiles): `development`, `preview`, and `production`.
+        Intent intent = new Intent(this, OpenVPNService.class);
+        intent.putExtra("ovpnConfig", config);
+        startService(intent);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
 
-</Step>
+} */
 
-<Collapsible summary="Explore development profile further">
+// Step 4: activity_main.xml (UI Layout)
 
-**eas.json** is a collection of different build profiles. Each profile is tailored with distinct configurations to produce specific build types. These profiles can also include platform-specific settings for Android or iOS.
+/* <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:gravity="center"
+android:orientation="vertical"
+android:padding="16dp">
 
-Currently, our focus is on the `development` profile, which includes the following configuration:
+<Spinner
+    android:id="@+id/serverSpinner"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:spinnerMode="dropdown" />
 
-- [`developmentClient`](/eas/json/#developmentclient): Enabled (`true`) for creating a debug build. It loads the app using the `expo-dev-client` library, which provides development tools and generates a build artifact for device or emulator/simulator installation and allows using the app for local development as it supports updating the JavaScript on the fly.
-- [`distribution`](/eas/json/#distribution): Configured as `internal` to indicate that we want to share the build internally (instead of uploading it on app stores).
+<Button
+    android:id="@+id/connectButton"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="20dp"
+    android:text="Connect Relax VPN" />
 
-> **Note**: Builds offer extensive customization options, including platform-specific settings and the ability to extend configurations across different build profiles. Learn more about [customizing build profiles](/build/eas-json/#build-profiles).
+<com.google.android.gms.ads.AdView
+    android:id="@+id/adView"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    ads:adSize="BANNER"
+    ads:adUnitId="ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy" />
 
-</Collapsible>
+</LinearLayout>
+*/// Notes: // - Include usa.ovpn, singapore.ovpn, india.ovpn in assets folder // - Replace AdMob IDs with your real ones // - Ensure OpenVPNService is configured correctly
 
-## Summary
-
-<ProgressTracker
-  currentChapterIndex={0}
-  name="EAS_TUTORIAL"
-  summary="
-We successfully used the EAS CLI to initialize, and configure our project, link it to EAS servers, and prepare a development build."
-  nextChapterDescription="In the next chapter, let's create a development build for Android, install it on a device and an emulator, and get it running with the development server."
-  nextChapterTitle="Create and run a cloud build for Android"
-  nextChapterLink="/tutorial/eas/android-development-build/"
-/>
